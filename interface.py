@@ -48,8 +48,8 @@ do_lower_case = True
 max_seq_length =64
 use_tpu = False
 use_one_hot_embeddings = False
-do_train = True
-do_eval = True
+do_train = False
+do_eval = False
 do_predict = True
 train_batch_size = 16
 eval_batch_size = 16
@@ -819,11 +819,11 @@ def main():
     train_examples = None
     num_train_steps = None
     num_warmup_steps = None
-    if do_train:
-        train_examples = processor.get_train_examples(data_dir)
-        num_train_steps = int(
-            len(train_examples) / train_batch_size * num_train_epochs)
-        num_warmup_steps = int(num_train_steps * warmup_proportion)
+    # if do_train:
+    #     train_examples = processor.get_train_examples(data_dir)
+    #     num_train_steps = int(
+    #         len(train_examples) / train_batch_size * num_train_epochs)
+    #     num_warmup_steps = int(num_train_steps * warmup_proportion)
 
     model_fn = model_fn_builder(
         bert_config=bert_config,
@@ -848,201 +848,307 @@ def main():
         eval_batch_size=eval_batch_size,
         predict_batch_size=predict_batch_size)
 
-    if do_train:
-        train_file = os.path.join(output_dir, "train.tf_record")
-        file_based_convert_examples_to_features(
-            train_examples, label_map, max_seq_length, tokenizer, train_file)
-        tf.logging.info("***** Running training *****")
-        tf.logging.info("  Num examples = %d", len(train_examples))
-        tf.logging.info("  Batch size = %d", train_batch_size)
-        tf.logging.info("  Num steps = %d", num_train_steps)
-        train_input_fn = file_based_input_fn_builder(
-            input_file=train_file,
-            seq_length=max_seq_length,
-            is_training=True,
-            drop_remainder=False,
-            num_labels=num_labels)
-        estimator.train(input_fn=train_input_fn, max_steps=num_train_steps)
-
-
-    if do_eval:
-        eval_examples = processor.get_dev_examples(data_dir)
-        num_actual_eval_examples = len(eval_examples)
-
-        if use_tpu:
-            # TPU requires a fixed batch size for all batches, therefore the number
-            # of examples must be a multiple of the batch size, or else examples
-            # will get dropped. So we pad with fake examples which are ignored
-            # later on. These do NOT count towards the metric (all tf.metrics
-            # support a per-instance weight, and these get a weight of 0.0).
-            while len(eval_examples) % eval_batch_size != 0:
-                eval_examples.append(PaddingInputExample())
-
-        eval_file = os.path.join(output_dir, "eval.tf_record")
-        file_based_convert_examples_to_features(
-            eval_examples, label_map, max_seq_length, tokenizer, eval_file)
-
-        tf.logging.info("***** Running evaluation *****")
-        tf.logging.info("  Num examples = %d (%d actual, %d padding)",
-                        len(eval_examples), num_actual_eval_examples,
-                        len(eval_examples) - num_actual_eval_examples)
-        tf.logging.info("  Batch size = %d", eval_batch_size)
-
-        # This tells the estimator to run through the entire set.
-        eval_steps = None
-        # However, if running eval on the TPU, you will need to specify the
-        # number of steps.
-        if use_tpu:
-            assert len(eval_examples) % eval_batch_size == 0
-            eval_steps = int(len(eval_examples) // eval_batch_size)
-
-        eval_drop_remainder = True if use_tpu else False
-        eval_input_fn = file_based_input_fn_builder(
-            input_file=eval_file,
-            seq_length=max_seq_length,
-            is_training=False,
-            drop_remainder=eval_drop_remainder,
-            num_labels=num_labels)
-
-        result = estimator.evaluate(input_fn=eval_input_fn, steps=eval_steps)
-
-        output_eval_file = os.path.join(output_dir, "eval_results.txt")
-        best_threshold_file = os.path.join(output_dir, "best_class_threshold.txt")
-        with tf.gfile.GFile(output_eval_file, "w") as writer:
-            with tf.gfile.GFile(best_threshold_file, "w") as threshold_writer:
-                tf.logging.info("***** Eval results *****")
-                for key in result.keys():
-                    tf.logging.info("  %s = %s", key, str(result[key]))
-                    writer.write("%s = %s\n" % (key, str(result[key])))
-                    if key.endswith('threshold'):
-                        threshold_writer.write("%s\n" % str(result[key]))
-                        tf.logging.info("")
-                        writer.write("\n")
+    # if do_train:
+    #     train_file = os.path.join(output_dir, "train.tf_record")
+    #     file_based_convert_examples_to_features(
+    #         train_examples, label_map, max_seq_length, tokenizer, train_file)
+    #     tf.logging.info("***** Running training *****")
+    #     tf.logging.info("  Num examples = %d", len(train_examples))
+    #     tf.logging.info("  Batch size = %d", train_batch_size)
+    #     tf.logging.info("  Num steps = %d", num_train_steps)
+    #     train_input_fn = file_based_input_fn_builder(
+    #         input_file=train_file,
+    #         seq_length=max_seq_length,
+    #         is_training=True,
+    #         drop_remainder=False,
+    #         num_labels=num_labels)
+    #     estimator.train(input_fn=train_input_fn, max_steps=num_train_steps)
+    #
+    #
+    # if do_eval:
+    #     eval_examples = processor.get_dev_examples(data_dir)
+    #     num_actual_eval_examples = len(eval_examples)
+    #
+    #     if use_tpu:
+    #         # TPU requires a fixed batch size for all batches, therefore the number
+    #         # of examples must be a multiple of the batch size, or else examples
+    #         # will get dropped. So we pad with fake examples which are ignored
+    #         # later on. These do NOT count towards the metric (all tf.metrics
+    #         # support a per-instance weight, and these get a weight of 0.0).
+    #         while len(eval_examples) % eval_batch_size != 0:
+    #             eval_examples.append(PaddingInputExample())
+    #
+    #     eval_file = os.path.join(output_dir, "eval.tf_record")
+    #     file_based_convert_examples_to_features(
+    #         eval_examples, label_map, max_seq_length, tokenizer, eval_file)
+    #
+    #     tf.logging.info("***** Running evaluation *****")
+    #     tf.logging.info("  Num examples = %d (%d actual, %d padding)",
+    #                     len(eval_examples), num_actual_eval_examples,
+    #                     len(eval_examples) - num_actual_eval_examples)
+    #     tf.logging.info("  Batch size = %d", eval_batch_size)
+    #
+    #     # This tells the estimator to run through the entire set.
+    #     eval_steps = None
+    #     # However, if running eval on the TPU, you will need to specify the
+    #     # number of steps.
+    #     if use_tpu:
+    #         assert len(eval_examples) % eval_batch_size == 0
+    #         eval_steps = int(len(eval_examples) // eval_batch_size)
+    #
+    #     eval_drop_remainder = True if use_tpu else False
+    #     eval_input_fn = file_based_input_fn_builder(
+    #         input_file=eval_file,
+    #         seq_length=max_seq_length,
+    #         is_training=False,
+    #         drop_remainder=eval_drop_remainder,
+    #         num_labels=num_labels)
+    #
+    #     result = estimator.evaluate(input_fn=eval_input_fn, steps=eval_steps)
+    #
+    #     output_eval_file = os.path.join(output_dir, "eval_results.txt")
+    #     best_threshold_file = os.path.join(output_dir, "best_class_threshold.txt")
+    #     with tf.gfile.GFile(output_eval_file, "w") as writer:
+    #         with tf.gfile.GFile(best_threshold_file, "w") as threshold_writer:
+    #             tf.logging.info("***** Eval results *****")
+    #             for key in result.keys():
+    #                 tf.logging.info("  %s = %s", key, str(result[key]))
+    #                 writer.write("%s = %s\n" % (key, str(result[key])))
+    #                 if key.endswith('threshold'):
+    #                     threshold_writer.write("%s\n" % str(result[key]))
+    #                     tf.logging.info("")
+    #                     writer.write("\n")
 
     if do_predict:
-        predict_examples = processor.get_test_examples(data_dir)
-        num_actual_predict_examples = len(predict_examples)
-        if use_tpu:
-            # TPU requires a fixed batch size for all batches, therefore the number
-            # of examples must be a multiple of the batch size, or else examples
-            # will get dropped. So we pad with fake examples which are ignored
-            # later on.
-            while len(predict_examples) % predict_batch_size != 0:
-                predict_examples.append(PaddingInputExample())
+        predict(processor, label_map, tokenizer, num_labels, estimator)
+        # predict_examples = processor.get_test_examples(data_dir)
+        # num_actual_predict_examples = len(predict_examples)
+        # if use_tpu:
+        #     # TPU requires a fixed batch size for all batches, therefore the number
+        #     # of examples must be a multiple of the batch size, or else examples
+        #     # will get dropped. So we pad with fake examples which are ignored
+        #     # later on.
+        #     while len(predict_examples) % predict_batch_size != 0:
+        #         predict_examples.append(PaddingInputExample())
+        #
+        # predict_file = os.path.join(output_dir, "predict.tf_record")
+        # file_based_convert_examples_to_features(predict_examples, label_map,
+        #                                         max_seq_length, tokenizer, predict_file)
+        #
+        # tf.logging.info("***** Running prediction*****")
+        # tf.logging.info("  Num examples = %d (%d actual, %d padding)",
+        #                 len(predict_examples), num_actual_predict_examples,
+        #                 len(predict_examples) - num_actual_predict_examples)
+        # tf.logging.info("  Batch size = %d", predict_batch_size)
+        #
+        # predict_drop_remainder = True if use_tpu else False
+        # predict_input_fn = file_based_input_fn_builder(
+        #     input_file=predict_file,
+        #     seq_length=max_seq_length,
+        #     is_training=False,
+        #     drop_remainder=predict_drop_remainder,
+        #     num_labels=num_labels)
+        #
+        # result = estimator.predict(input_fn=predict_input_fn)
+        # id2label = {v: k for k, v in label_map.items()}
+        # output_predict_file = os.path.join(output_dir, "test_results.tsv")
+        #
+        # best_threshold_file = os.path.join(output_dir, "best_class_threshold.txt")
+        # if not tf.gfile.Exists(best_threshold_file):
+        #     threshold = [0.5] * num_labels
+        # else:
+        #     with tf.gfile.GFile(best_threshold_file, "r") as reader:
+        #         threshold = reader.read().splitlines()
+        #     threshold = list(map(float, threshold))
+        #
+        # with tf.gfile.GFile(output_predict_file, "w") as writer:
+        #     num_written_lines = 0
+        #     output_line = "\t".join(
+        #         ['frame_O_X', 'intent OX', 'intent_label', 'intent_pred', 'sentence']) + "\n"
+        #     writer.write(output_line)
+        #
+        #     # below for cal metrics
+        #     slot_pred_all_data = []
+        #     slot_label_all_data = []
+        #     intent_pred_all_data = []
+        #     intent_label_all_data = []
+        #
+        #     for index, item in enumerate(result):
+        #         mask_length = item["mask_length"]
+        #         intent_predicted = item["intent_predicted"]
+        #         intent_predicted = [intent_predicted[i] > threshold[i] for i in range(num_labels)]
+        #
+        #         label_ids = item["label_ids"]
+        #         input_ids = item["input_ids"][:mask_length]
+        #         tokens = tokenizer.convert_ids_to_tokens(input_ids)
+        #
+        #         intent_pred_all_data.append(intent_predicted)
+        #         intent_label_all_data.append(label_ids)
+        #
+        #         pre_intent = ' '.join([id2label[index] for index, pred in enumerate(intent_predicted) if pred])
+        #         label_intent = ' '.join([id2label[index] for index, label in enumerate(label_ids) if label])
+        #
+        #         sentence = ''.join(tokens)
+        #         intent_compare = 'O' if pre_intent == label_intent else 'X'
+        #         frame_O_X = 'O' if pre_intent == label_intent else 'X'
+        #         output_line = "\t".join(
+        #             [frame_O_X, intent_compare, label_intent, pre_intent, sentence]) + "\n"
+        #         writer.write(output_line)
+        #         num_written_lines += 1
+        #     assert num_written_lines == num_actual_predict_examples
+        #
+        # # write test metrics
+        # from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+        # import numpy as np
+        # output_test_metrics_file = os.path.join(output_dir, "test_results.txt")
+        # with tf.gfile.GFile(output_test_metrics_file, "w") as writer:
+        #
+        #     intent_label_all_data = np.array(intent_label_all_data)
+        #     intent_pred_all_data = np.array(intent_pred_all_data)
+        #
+        #     for i in range(num_labels):
+        #         f1 = f1_score(intent_label_all_data[:, i], intent_pred_all_data[:, i])
+        #         precision = precision_score(intent_label_all_data[:, i], intent_pred_all_data[:, i])
+        #         recall = recall_score(intent_label_all_data[:, i], intent_pred_all_data[:, i])
+        #
+        #         writer.write(f'class{i:0>2d}_f1 = {f1}\n')
+        #         writer.write(f'class{i:0>2d}_precision = {precision}\n')
+        #         writer.write(f'class{i:0>2d}_recall = {recall}\n')
+        #         writer.write('\n\n')
+        #
+        #     intent_label_flatten = intent_label_all_data.reshape(-1)
+        #     intent_pred_flatten = intent_pred_all_data.reshape(-1)
+        #     intent_f1 = f1_score(intent_label_flatten, intent_pred_flatten)
+        #     intent_precision = precision_score(intent_label_flatten, intent_pred_flatten)
+        #     intent_recall = recall_score(intent_label_flatten, intent_pred_flatten)
+        #
+        #     writer.write(f'class_intent_f1 = {intent_f1}\n')
+        #     writer.write(f'class_intent_precision = {intent_precision}\n')
+        #     writer.write(f'class_intent_recall = {intent_recall}\n')
+        #     writer.write('\n\n')
 
-        predict_file = os.path.join(output_dir, "predict.tf_record")
-        file_based_convert_examples_to_features(predict_examples, label_map,
-                                                max_seq_length, tokenizer, predict_file)
+    # if do_export:
+    #     def serving_input_fn():
+    #         label_ids = tf.placeholder(tf.int32, [None, num_labels], name='label_ids')
+    #         input_ids = tf.placeholder(tf.int32, [None, max_seq_length], name='input_ids')
+    #         input_mask = tf.placeholder(tf.int32, [None, max_seq_length], name='input_mask')
+    #         segment_ids = tf.placeholder(tf.int32, [None, max_seq_length], name='segment_ids')
+    #         input_fn = tf.estimator.export.build_raw_serving_input_receiver_fn({
+    #             'label_ids': label_ids,
+    #             'input_ids': input_ids,
+    #             'input_mask': input_mask,
+    #             'segment_ids': segment_ids
+    #         })()
+    #         return input_fn
+    #
+    #     estimator._export_to_tpu = False
+    #     estimator.export_saved_model(export_dir, serving_input_fn)
 
-        tf.logging.info("***** Running prediction*****")
-        tf.logging.info("  Num examples = %d (%d actual, %d padding)",
-                        len(predict_examples), num_actual_predict_examples,
-                        len(predict_examples) - num_actual_predict_examples)
-        tf.logging.info("  Batch size = %d", predict_batch_size)
+def predict(processor,label_map,tokenizer,num_labels,estimator):
+    predict_examples = processor.get_test_examples(data_dir)
+    num_actual_predict_examples = len(predict_examples)
+    if use_tpu:
+        # TPU requires a fixed batch size for all batches, therefore the number
+        # of examples must be a multiple of the batch size, or else examples
+        # will get dropped. So we pad with fake examples which are ignored
+        # later on.
+        while len(predict_examples) % predict_batch_size != 0:
+            predict_examples.append(PaddingInputExample())
 
-        predict_drop_remainder = True if use_tpu else False
-        predict_input_fn = file_based_input_fn_builder(
-            input_file=predict_file,
-            seq_length=max_seq_length,
-            is_training=False,
-            drop_remainder=predict_drop_remainder,
-            num_labels=num_labels)
+    predict_file = os.path.join(output_dir, "predict.tf_record")
+    file_based_convert_examples_to_features(predict_examples, label_map,
+                                            max_seq_length, tokenizer, predict_file)
 
-        result = estimator.predict(input_fn=predict_input_fn)
-        id2label = {v: k for k, v in label_map.items()}
-        output_predict_file = os.path.join(output_dir, "test_results.tsv")
+    tf.logging.info("***** Running prediction*****")
+    tf.logging.info("  Num examples = %d (%d actual, %d padding)",
+                    len(predict_examples), num_actual_predict_examples,
+                    len(predict_examples) - num_actual_predict_examples)
+    tf.logging.info("  Batch size = %d", predict_batch_size)
 
-        best_threshold_file = os.path.join(output_dir, "best_class_threshold.txt")
-        if not tf.gfile.Exists(best_threshold_file):
-            threshold = [0.5] * num_labels
-        else:
-            with tf.gfile.GFile(best_threshold_file, "r") as reader:
-                threshold = reader.read().splitlines()
-            threshold = list(map(float, threshold))
+    predict_drop_remainder = True if use_tpu else False
+    predict_input_fn = file_based_input_fn_builder(
+        input_file=predict_file,
+        seq_length=max_seq_length,
+        is_training=False,
+        drop_remainder=predict_drop_remainder,
+        num_labels=num_labels)
 
-        with tf.gfile.GFile(output_predict_file, "w") as writer:
-            num_written_lines = 0
+    result = estimator.predict(input_fn=predict_input_fn)
+    id2label = {v: k for k, v in label_map.items()}
+    output_predict_file = os.path.join(output_dir, "test_results.tsv")
+
+    best_threshold_file = os.path.join(output_dir, "best_class_threshold.txt")
+    if not tf.gfile.Exists(best_threshold_file):
+        threshold = [0.5] * num_labels
+    else:
+        with tf.gfile.GFile(best_threshold_file, "r") as reader:
+            threshold = reader.read().splitlines()
+        threshold = list(map(float, threshold))
+
+    with tf.gfile.GFile(output_predict_file, "w") as writer:
+        num_written_lines = 0
+        output_line = "\t".join(
+            ['frame_O_X', 'intent OX', 'intent_label', 'intent_pred', 'sentence']) + "\n"
+        writer.write(output_line)
+
+        # below for cal metrics
+        slot_pred_all_data = []
+        slot_label_all_data = []
+        intent_pred_all_data = []
+        intent_label_all_data = []
+
+        for index, item in enumerate(result):
+            mask_length = item["mask_length"]
+            intent_predicted = item["intent_predicted"]
+            intent_predicted = [intent_predicted[i] > threshold[i] for i in range(num_labels)]
+
+            label_ids = item["label_ids"]
+            input_ids = item["input_ids"][:mask_length]
+            tokens = tokenizer.convert_ids_to_tokens(input_ids)
+
+            intent_pred_all_data.append(intent_predicted)
+            intent_label_all_data.append(label_ids)
+
+            pre_intent = ' '.join([id2label[index] for index, pred in enumerate(intent_predicted) if pred])
+            label_intent = ' '.join([id2label[index] for index, label in enumerate(label_ids) if label])
+
+            sentence = ''.join(tokens)
+            intent_compare = 'O' if pre_intent == label_intent else 'X'
+            frame_O_X = 'O' if pre_intent == label_intent else 'X'
             output_line = "\t".join(
-                ['frame_O_X', 'intent OX', 'intent_label', 'intent_pred', 'sentence']) + "\n"
+                [frame_O_X, intent_compare, label_intent, pre_intent, sentence]) + "\n"
             writer.write(output_line)
+            num_written_lines += 1
+        assert num_written_lines == num_actual_predict_examples
 
-            # below for cal metrics
-            slot_pred_all_data = []
-            slot_label_all_data = []
-            intent_pred_all_data = []
-            intent_label_all_data = []
+    # write test metrics
+    from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+    import numpy as np
+    output_test_metrics_file = os.path.join(output_dir, "test_results.txt")
+    with tf.gfile.GFile(output_test_metrics_file, "w") as writer:
 
-            for index, item in enumerate(result):
-                mask_length = item["mask_length"]
-                intent_predicted = item["intent_predicted"]
-                intent_predicted = [intent_predicted[i] > threshold[i] for i in range(num_labels)]
+        intent_label_all_data = np.array(intent_label_all_data)
+        intent_pred_all_data = np.array(intent_pred_all_data)
 
-                label_ids = item["label_ids"]
-                input_ids = item["input_ids"][:mask_length]
-                tokens = tokenizer.convert_ids_to_tokens(input_ids)
+        for i in range(num_labels):
+            f1 = f1_score(intent_label_all_data[:, i], intent_pred_all_data[:, i])
+            precision = precision_score(intent_label_all_data[:, i], intent_pred_all_data[:, i])
+            recall = recall_score(intent_label_all_data[:, i], intent_pred_all_data[:, i])
 
-                intent_pred_all_data.append(intent_predicted)
-                intent_label_all_data.append(label_ids)
-
-                pre_intent = ' '.join([id2label[index] for index, pred in enumerate(intent_predicted) if pred])
-                label_intent = ' '.join([id2label[index] for index, label in enumerate(label_ids) if label])
-
-                sentence = ''.join(tokens)
-                intent_compare = 'O' if pre_intent == label_intent else 'X'
-                frame_O_X = 'O' if pre_intent == label_intent else 'X'
-                output_line = "\t".join(
-                    [frame_O_X, intent_compare, label_intent, pre_intent, sentence]) + "\n"
-                writer.write(output_line)
-                num_written_lines += 1
-            assert num_written_lines == num_actual_predict_examples
-
-        # write test metrics
-        from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-        import numpy as np
-        output_test_metrics_file = os.path.join(output_dir, "test_results.txt")
-        with tf.gfile.GFile(output_test_metrics_file, "w") as writer:
-
-            intent_label_all_data = np.array(intent_label_all_data)
-            intent_pred_all_data = np.array(intent_pred_all_data)
-
-            for i in range(num_labels):
-                f1 = f1_score(intent_label_all_data[:, i], intent_pred_all_data[:, i])
-                precision = precision_score(intent_label_all_data[:, i], intent_pred_all_data[:, i])
-                recall = recall_score(intent_label_all_data[:, i], intent_pred_all_data[:, i])
-
-                writer.write(f'class{i:0>2d}_f1 = {f1}\n')
-                writer.write(f'class{i:0>2d}_precision = {precision}\n')
-                writer.write(f'class{i:0>2d}_recall = {recall}\n')
-                writer.write('\n\n')
-
-            intent_label_flatten = intent_label_all_data.reshape(-1)
-            intent_pred_flatten = intent_pred_all_data.reshape(-1)
-            intent_f1 = f1_score(intent_label_flatten, intent_pred_flatten)
-            intent_precision = precision_score(intent_label_flatten, intent_pred_flatten)
-            intent_recall = recall_score(intent_label_flatten, intent_pred_flatten)
-
-            writer.write(f'class_intent_f1 = {intent_f1}\n')
-            writer.write(f'class_intent_precision = {intent_precision}\n')
-            writer.write(f'class_intent_recall = {intent_recall}\n')
+            writer.write(f'class{i:0>2d}_f1 = {f1}\n')
+            writer.write(f'class{i:0>2d}_precision = {precision}\n')
+            writer.write(f'class{i:0>2d}_recall = {recall}\n')
             writer.write('\n\n')
 
-    if do_export:
-        def serving_input_fn():
-            label_ids = tf.placeholder(tf.int32, [None, num_labels], name='label_ids')
-            input_ids = tf.placeholder(tf.int32, [None, max_seq_length], name='input_ids')
-            input_mask = tf.placeholder(tf.int32, [None, max_seq_length], name='input_mask')
-            segment_ids = tf.placeholder(tf.int32, [None, max_seq_length], name='segment_ids')
-            input_fn = tf.estimator.export.build_raw_serving_input_receiver_fn({
-                'label_ids': label_ids,
-                'input_ids': input_ids,
-                'input_mask': input_mask,
-                'segment_ids': segment_ids
-            })()
-            return input_fn
+        intent_label_flatten = intent_label_all_data.reshape(-1)
+        intent_pred_flatten = intent_pred_all_data.reshape(-1)
+        intent_f1 = f1_score(intent_label_flatten, intent_pred_flatten)
+        intent_precision = precision_score(intent_label_flatten, intent_pred_flatten)
+        intent_recall = recall_score(intent_label_flatten, intent_pred_flatten)
 
-        estimator._export_to_tpu = False
-        estimator.export_saved_model(export_dir, serving_input_fn)
-
-
+        writer.write(f'class_intent_f1 = {intent_f1}\n')
+        writer.write(f'class_intent_precision = {intent_precision}\n')
+        writer.write(f'class_intent_recall = {intent_recall}\n')
+        writer.write('\n\n')
 if __name__ == "__main__":
     main()

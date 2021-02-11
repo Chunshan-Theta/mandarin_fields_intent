@@ -127,3 +127,15 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+bert_wwm/
+output/*.data*
+output/*.index
+output/*.meta
+output/*.pbtxt
+output/*.tf_record
+output/events.out.*
+output/checkpoint
+output/eval
+.idea/
+

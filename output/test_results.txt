@@ -1,0 +1,25 @@
+class00_f1 = 0.7272727272727273
+class00_precision = 0.5714285714285714
+class00_recall = 1.0
+
+
+class01_f1 = 0.888888888888889
+class01_precision = 0.8
+class01_recall = 1.0
+
+
+class02_f1 = 0.6666666666666666
+class02_precision = 1.0
+class02_recall = 0.5
+
+
+class03_f1 = 1.0
+class03_precision = 1.0
+class03_recall = 1.0
+
+
+class_intent_f1 = 0.823529411764706
+class_intent_precision = 0.7777777777777778
+class_intent_recall = 0.875
+
+

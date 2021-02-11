@@ -1,0 +1,26 @@
+class00_f1 = 0.9756097
+class00_precision = 0.9756098
+class00_recall = 0.9756098
+class00_threshold = 0.110552765
+
+class01_f1 = 1.0
+class01_precision = 1.0
+class01_recall = 1.0
+class01_threshold = 0.2512563
+
+class02_f1 = 0.9729729
+class02_precision = 1.0
+class02_recall = 0.94736844
+class02_threshold = 0.56281406
+
+class03_f1 = 1.0
+class03_precision = 1.0
+class03_recall = 1.0
+class03_threshold = 0.6532663
+
+class_intent_f1 = 0.97916657
+class_precision = 0.9894737
+class_recall = 0.96907216
+class_threshold_ = 0.56281406
+loss = 0.26976207
+global_step = 29
